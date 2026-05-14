@@ -48,6 +48,8 @@ app.*.map.json
 /android/app/release
 
 # Keys
+/backend/ai_service/.env
+*.env
 /android/key.properties
 /android/app/keystore.jks
 key.properties

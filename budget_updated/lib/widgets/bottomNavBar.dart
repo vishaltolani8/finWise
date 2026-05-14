@@ -22,11 +22,11 @@ import 'package:budget/colors.dart';
 import 'package:flutter/services.dart';
 
 class BottomNavBar extends StatefulWidget {
-  const BottomNavBar(
-      {required this.onChanged,
-      required this.currentNavigationStackedIndex,
-      Key? key})
-      : super(key: key);
+  const BottomNavBar({
+    required this.onChanged,
+    required this.currentNavigationStackedIndex,
+    Key? key,
+  }) : super(key: key);
   final Function(int) onChanged;
 
   // current
@@ -38,8 +38,9 @@ class BottomNavBar extends StatefulWidget {
 
 class BottomNavBarState extends State<BottomNavBar> {
   void onItemTapped(int indexOfNavigationBar, {bool allowReApply = false}) {
-    int navigationStackedIndex =
-        getNavigationStackedIndexFromBarIndex(indexOfNavigationBar);
+    int navigationStackedIndex = getNavigationStackedIndexFromBarIndex(
+      indexOfNavigationBar,
+    );
 
     if (navigationStackedIndex == widget.currentNavigationStackedIndex &&
         allowReApply == false) {
@@ -49,6 +50,8 @@ class BottomNavBarState extends State<BottomNavBar> {
         transactionsListPageStateKey.currentState?.scrollToTop();
       if (navigationStackedIndex == 2)
         budgetsListPageStateKey.currentState?.scrollToTop();
+      if (navigationStackedIndex == 18)
+        aiInsightsPageStateKey.currentState?.scrollToTop();
       if (navigationStackedIndex == 3)
         settingsPageStateKey.currentState?.scrollToTop();
       if (navigationStackedIndex == 5)
@@ -69,6 +72,9 @@ class BottomNavBarState extends State<BottomNavBar> {
   }
 
   int getNavigationStackedIndexFromBarIndex(int barIndex) {
+    if (finWiseMvpMode) {
+      return [0, 1, 2, 18, 3][barIndex.clamp(0, 4).toInt()];
+    }
     if (barIndex == 0) {
       return navBarIconsData[appStateSettings["customNavBarShortcut0"]]
               ?.navigationIndexedStackIndex ??
@@ -87,6 +93,10 @@ class BottomNavBarState extends State<BottomNavBar> {
   }
 
   int getNavigationBarIndexFromStackedIndex(int stackedIndex) {
+    if (finWiseMvpMode) {
+      final int index = [0, 1, 2, 18, 3].indexOf(stackedIndex);
+      return index < 0 ? 0 : index;
+    }
     if (stackedIndex ==
         (navBarIconsData[appStateSettings["customNavBarShortcut0"]]
                 ?.navigationIndexedStackIndex ??
@@ -110,9 +120,71 @@ class BottomNavBarState extends State<BottomNavBar> {
   Widget build(BuildContext context) {
     // The index of the actual navigation bar, this is not the navigation stack index
     int navigationBarIndex = getNavigationBarIndexFromStackedIndex(
-        widget.currentNavigationStackedIndex);
+      widget.currentNavigationStackedIndex,
+    );
 
     if (getIsFullScreen(context)) return SizedBox.shrink();
+    if (finWiseMvpMode) {
+      final List<String> keys = [
+        "home",
+        "transactions",
+        "budgets",
+        "aiInsights",
+        "more",
+      ];
+      return Container(
+        decoration: BoxDecoration(boxShadow: boxShadowSharp(context)),
+        child: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            backgroundColor: getBottomNavbarBackgroundColor(
+              colorScheme: Theme.of(context).colorScheme,
+              brightness: Theme.of(context).brightness,
+              lightDarkAccent: getColor(context, "lightDarkAccent"),
+            ),
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: appStateSettings["materialYou"]
+                ? dynamicPastel(
+                    context,
+                    Theme.of(context).colorScheme.primary,
+                    amount: 0.6,
+                  )
+                : null,
+            labelTextStyle: MaterialStateProperty.resolveWith((states) {
+              return TextStyle(
+                fontFamily: appStateSettings["font"],
+                fontFamilyFallback: ['Inter'],
+                fontSize: 12,
+                fontWeight: states.contains(MaterialState.selected)
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+                overflow: TextOverflow.clip,
+              );
+            }),
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          ),
+          child: NavigationBar(
+            animationDuration: Duration(milliseconds: 1000),
+            destinations: [
+              for (final String key in keys)
+                NavigationDestination(
+                  icon: Icon(
+                    navBarIconsData[key]!.iconData,
+                    size: navBarIconsData[key]!.iconSize,
+                  ),
+                  label:
+                      navBarIconsData[key]!.labelShort ??
+                      navBarIconsData[key]!.label.tr(),
+                  tooltip: "",
+                ),
+            ],
+            selectedIndex: navigationBarIndex,
+            onDestinationSelected: (value) {
+              onItemTapped(value);
+            },
+          ),
+        ),
+      );
+    }
     if (getPlatform() == PlatformOS.isIOS) {
       return IntrinsicHeight(
         child: Container(
@@ -125,8 +197,9 @@ class BottomNavBarState extends State<BottomNavBar> {
             boxShadow: boxShadowSharp(context),
           ),
           padding: EdgeInsetsDirectional.only(
-              top: 2,
-              bottom: max(2, MediaQuery.paddingOf(context).bottom - 5.5)),
+            top: 2,
+            bottom: max(2, MediaQuery.paddingOf(context).bottom - 5.5),
+          ),
           child: Row(
             children: [
               NavBarSpaceButton(
@@ -213,9 +286,7 @@ class BottomNavBarState extends State<BottomNavBar> {
     }
     // Android navbar
     return Container(
-      decoration: BoxDecoration(
-        boxShadow: boxShadowSharp(context),
-      ),
+      decoration: BoxDecoration(boxShadow: boxShadowSharp(context)),
       child: NavigationBarTheme(
         data: NavigationBarThemeData(
           backgroundColor: getBottomNavbarBackgroundColor(
@@ -225,8 +296,11 @@ class BottomNavBarState extends State<BottomNavBar> {
           ),
           surfaceTintColor: Colors.transparent,
           indicatorColor: appStateSettings["materialYou"]
-              ? dynamicPastel(context, Theme.of(context).colorScheme.primary,
-                  amount: 0.6)
+              ? dynamicPastel(
+                  context,
+                  Theme.of(context).colorScheme.primary,
+                  amount: 0.6,
+                )
               : null,
           labelTextStyle: MaterialStateProperty.resolveWith((states) {
             if (states.contains(MaterialState.selected)) {
@@ -259,7 +333,8 @@ class BottomNavBarState extends State<BottomNavBar> {
               navigationBarIconBuilder: (NavBarIconData iconData) {
                 return NavigationDestination(
                   icon: Icon(iconData.iconData, size: iconData.iconSize),
-                  label: iconData.label.tr().length > 15 &&
+                  label:
+                      iconData.label.tr().length > 15 &&
                           iconData.labelShort != null
                       ? (iconData.labelShort ?? "").tr()
                       : iconData.label.tr(),
@@ -275,7 +350,8 @@ class BottomNavBarState extends State<BottomNavBar> {
               navigationBarIconBuilder: (NavBarIconData iconData) {
                 return NavigationDestination(
                   icon: Icon(iconData.iconData, size: iconData.iconSize),
-                  label: iconData.label.tr().length > 15 &&
+                  label:
+                      iconData.label.tr().length > 15 &&
                           iconData.labelShort != null
                       ? (iconData.labelShort ?? "").tr()
                       : iconData.label.tr(),
@@ -291,7 +367,8 @@ class BottomNavBarState extends State<BottomNavBar> {
               navigationBarIconBuilder: (NavBarIconData iconData) {
                 return NavigationDestination(
                   icon: Icon(iconData.iconData, size: iconData.iconSize),
-                  label: iconData.label.tr().length > 15 &&
+                  label:
+                      iconData.label.tr().length > 15 &&
                           iconData.labelShort != null
                       ? (iconData.labelShort ?? "").tr()
                       : iconData.label.tr(),
@@ -316,11 +393,12 @@ class BottomNavBarState extends State<BottomNavBar> {
 }
 
 class NavBarSpaceButton extends StatelessWidget {
-  const NavBarSpaceButton(
-      {required this.onPress,
-      required this.flex,
-      required this.child,
-      super.key});
+  const NavBarSpaceButton({
+    required this.onPress,
+    required this.flex,
+    required this.child,
+    super.key,
+  });
   final VoidCallback onPress;
   final int flex;
   final Widget child;
@@ -388,8 +466,10 @@ class CustomizableNavigationBarIcon extends StatelessWidget {
 }
 
 class SelectNavBarShortcutPopup extends StatelessWidget {
-  const SelectNavBarShortcutPopup(
-      {required this.shortcutAppSettingKey, super.key});
+  const SelectNavBarShortcutPopup({
+    required this.shortcutAppSettingKey,
+    super.key,
+  });
   final String shortcutAppSettingKey;
   @override
   Widget build(BuildContext context) {
@@ -422,10 +502,7 @@ class SelectNavBarShortcutPopup extends StatelessWidget {
             onSettings: () {
               openBottomSheet(
                 context,
-                PopupFramework(
-                  hasPadding: false,
-                  child: BudgetSettings(),
-                ),
+                PopupFramework(hasPadding: false, child: BudgetSettings()),
               );
             },
           ),
@@ -448,10 +525,7 @@ class SelectNavBarShortcutPopup extends StatelessWidget {
           onSettings: () {
             openBottomSheet(
               context,
-              PopupFramework(
-                hasPadding: false,
-                child: TransactionsSettings(),
-              ),
+              PopupFramework(hasPadding: false, child: TransactionsSettings()),
             );
           },
         ),
@@ -461,10 +535,7 @@ class SelectNavBarShortcutPopup extends StatelessWidget {
           onSettings: () {
             openBottomSheet(
               context,
-              PopupFramework(
-                hasPadding: false,
-                child: BudgetSettings(),
-              ),
+              PopupFramework(hasPadding: false, child: BudgetSettings()),
             );
           },
         ),
@@ -474,10 +545,7 @@ class SelectNavBarShortcutPopup extends StatelessWidget {
           onSettings: () {
             openBottomSheet(
               context,
-              PopupFramework(
-                hasPadding: false,
-                child: ObjectiveSettings(),
-              ),
+              PopupFramework(hasPadding: false, child: ObjectiveSettings()),
             );
           },
         ),
@@ -491,10 +559,7 @@ class SelectNavBarShortcutPopup extends StatelessWidget {
           onSettings: () {
             openBottomSheet(
               context,
-              PopupFramework(
-                hasPadding: false,
-                child: SubscriptionSettings(),
-              ),
+              PopupFramework(hasPadding: false, child: SubscriptionSettings()),
             );
           },
         ),
@@ -536,10 +601,7 @@ class NavBarShortcutSelection extends StatelessWidget {
   Widget build(BuildContext context) {
     NavBarIconData iconData = navBarIconsData[navBarIconDataKey]!;
     return Padding(
-      padding: const EdgeInsetsDirectional.only(
-        bottom: 5,
-        top: 5,
-      ),
+      padding: const EdgeInsetsDirectional.only(bottom: 5, top: 5),
       child: Row(
         children: [
           Expanded(
@@ -550,7 +612,9 @@ class NavBarShortcutSelection extends StatelessWidget {
               alignBeside: true,
               padding: onSettings == null
                   ? EdgeInsetsDirectional.symmetric(
-                      horizontal: 20, vertical: 15)
+                      horizontal: 20,
+                      vertical: 15,
+                    )
                   : EdgeInsetsDirectional.only(
                       start: 20,
                       end: 5,
@@ -561,8 +625,11 @@ class NavBarShortcutSelection extends StatelessWidget {
               iconData: iconData.iconData,
               iconScale: iconData.iconScale,
               onTap: () async {
-                await updateSettings(shortcutAppSettingKey, navBarIconDataKey,
-                    updateGlobalState: false);
+                await updateSettings(
+                  shortcutAppSettingKey,
+                  navBarIconDataKey,
+                  updateGlobalState: false,
+                );
                 popRoute(context, true);
               },
               infoButton: onSettings == null
@@ -614,10 +681,9 @@ class NavBarIcon extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: Theme.of(context).brightness == Brightness.dark
                         ? Theme.of(context).colorScheme.secondaryContainer
-                        : Theme.of(context)
-                            .colorScheme
-                            .secondary
-                            .withOpacity(0.3),
+                        : Theme.of(
+                            context,
+                          ).colorScheme.secondary.withOpacity(0.3),
                   ),
                   height: 52,
                   width: 52,
@@ -637,10 +703,7 @@ class NavBarIcon extends StatelessWidget {
               : null,
           icon: Transform.scale(
             scale: customIconScale,
-            child: Icon(
-              icon,
-              size: 27,
-            ),
+            child: Icon(icon, size: 27),
           ),
           onPressed: () {
             onItemTapped(navigationBarIndex);
