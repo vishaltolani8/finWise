@@ -33,6 +33,7 @@ import 'package:flutter/material.dart';
 import 'package:budget/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -48,11 +49,10 @@ bool allowDangerousDebugFlags = kDebugMode;
 void main() async {
   captureLogs(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    if (!finWiseMvpMode) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    }
+    // Always initialize Firebase for Google Sign-In to work
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     await EasyLocalization.ensureInitialized();
     sharedPreferences = await SharedPreferences.getInstance();
     database = await constructDb('db');
@@ -237,8 +237,22 @@ class FinWiseAuthGate extends StatefulWidget {
 }
 
 class _FinWiseAuthGateState extends State<FinWiseAuthGate> {
-  late bool isLoggedIn = !finWiseMvpMode ||
-      sharedPreferences.getBool(finWiseMockLoggedInKey) == true;
+  bool _checkLoginStatus() {
+    if (!finWiseMvpMode) return false;
+
+    // Check if user logged in via demo mode
+    if (sharedPreferences.getBool(finWiseMockLoggedInKey) == true) {
+      // If logged in via Firebase (Google), verify Firebase auth is still valid
+      if (sharedPreferences.getBool("firebaseAuthEnabled") == true) {
+        final user = FirebaseAuth.instance.currentUser;
+        return user != null;
+      }
+      return true; // Demo login is valid
+    }
+    return false;
+  }
+
+  late bool isLoggedIn = _checkLoginStatus();
 
   @override
   Widget build(BuildContext context) {

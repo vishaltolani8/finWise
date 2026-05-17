@@ -1205,21 +1205,23 @@ List<String> popularCurrencies = [
 ];
 
 String getDevicesDefaultCurrencyCode() {
-  try {
-    String? currentCountryCode =
-        WidgetsBinding.instance.platformDispatcher.locale.countryCode;
-    // print(currentCountryCode);
-    for (String currencyKey in currenciesJSON.keys) {
-      if (currenciesJSON[currencyKey] != null &&
-          currenciesJSON[currencyKey]["CountryCode"] != null &&
-          currenciesJSON[currencyKey]["CountryCode"] == currentCountryCode) {
-        return currencyKey;
-      }
-    }
-  } catch (e) {
-    print("Error getting default currency " + e.toString());
-  }
-  return popularCurrencies[0];
+  // Force PKR as default currency for this app
+  return "pkr";
+  // Original code preserved below in case you want to revert later:
+  // try {
+  //   String? currentCountryCode =
+  //       WidgetsBinding.instance.platformDispatcher.locale.countryCode;
+  //   for (String currencyKey in currenciesJSON.keys) {
+  //     if (currenciesJSON[currencyKey] != null &&
+  //         currenciesJSON[currencyKey]["CountryCode"] != null &&
+  //         currenciesJSON[currencyKey]["CountryCode"] == currentCountryCode) {
+  //       return currencyKey;
+  //     }
+  //   }
+  // } catch (e) {
+  //   print("Error getting default currency " + e.toString());
+  // }
+  // return popularCurrencies[0];
 }
 
 void copyToClipboard(String text,

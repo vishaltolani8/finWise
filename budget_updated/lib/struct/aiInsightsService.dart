@@ -15,7 +15,7 @@ const String finWiseAiBaseUrlSettingKey = "finWiseAiBaseUrl";
 
 String getDefaultFinWiseAiBaseUrl() {
   if (kIsWeb) return "http://localhost:8000";
-  return "http://10.0.2.2:8000";
+  return "http://192.168.1.36:8000";  // your PC's IP
 }
 
 class FinWiseFinancialSnapshot {

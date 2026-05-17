@@ -1,16 +1,23 @@
 import json
 import math
 import os
+from pathlib import Path
 from typing import Any
 
-import google.generativeai as genai
+import google.genai as genai
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 
-load_dotenv()
+# Load .env from the same directory as this script
+env_path = Path(__file__).parent / ".env"
+load_dotenv(env_path)
+
+# Debug: Print if API key is loaded (remove in production)
+api_key = os.getenv("GEMINI_API_KEY", "").strip()
+print(f"Gemini API Key loaded: {'Yes' if api_key else 'NO - Check .env file!'}")
 
 app = FastAPI(title="FinWise AI Service", version="0.1.0")
 
@@ -69,16 +76,43 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/debug")
+def debug_info() -> dict[str, Any]:
+    """Debug endpoint to check API key and Gemini connection"""
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    has_key = bool(api_key)
+    gemini_status = "not tested"
+    gemini_error = None
+
+    if has_key:
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            # Test with a simple prompt
+            response = model.generate_content("Say 'Gemini is working!' in exactly 3 words")
+            gemini_status = "working" if "Gemini" in response.text else f"unexpected: {response.text}"
+        except Exception as e:
+            gemini_status = "error"
+            gemini_error = str(e)
+
+    return {
+        "api_key_present": has_key,
+        "api_key_prefix": api_key[:10] + "..." if api_key else "",
+        "gemini_status": gemini_status,
+        "gemini_error": gemini_error,
+    }
+
+
 @app.post("/api/insights")
 def create_insights(payload: InsightRequest) -> dict[str, Any]:
     fallback = build_fallback(payload.snapshot)
-    api_key = os.getenv("AIzaSyBHUiQIqXbtsPE0SULSUVq37rNj0-sNvCU", "").strip()
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         return fallback
 
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash")
         response = model.generate_content(build_prompt(payload))
         parsed = parse_json_response(response.text)
         return normalize_response(parsed, fallback)
