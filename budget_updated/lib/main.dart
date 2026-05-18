@@ -85,13 +85,14 @@ void main() async {
 }
 
 Future<void> applyFinWiseMvpSettings() async {
+  final bool signedIn = appStateSettings["hasSignedIn"] == true;
   final Map<String, dynamic> mvpSettings = {
     "customNavBarShortcut0": "home",
     "customNavBarShortcut1": "transactions",
     "customNavBarShortcut2": "budgets",
-    "backupSync": false,
+    "backupSync": signedIn && appStateSettings["backupSync"] == true,
     "syncEveryChange": false,
-    "autoBackups": false,
+    "autoBackups": signedIn && appStateSettings["autoBackups"] == true,
     "sharedBudgets": false,
     "emailScanning": false,
     "emailScanningPullToRefresh": false,

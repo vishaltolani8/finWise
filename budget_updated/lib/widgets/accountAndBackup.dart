@@ -7,6 +7,7 @@ import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/aboutPage.dart';
 import 'package:budget/pages/accountsPage.dart';
+import 'package:budget/struct/finwise_mvp.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/shareBudget.dart';
@@ -31,6 +32,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:googleapis/abusiveexperiencereport/v1.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -72,6 +74,42 @@ class GoogleAuthClient extends http.BaseClient {
 
 signIn.GoogleSignIn? googleSignIn;
 signIn.GoogleSignInAccount? googleUser;
+
+Future<void> finishFinWiseGoogleSignIn() async {
+  if (!finWiseMvpMode || googleUser == null) return;
+
+  final signIn.GoogleSignInAuthentication googleAuth =
+      await googleUser!.authentication;
+  final OAuthCredential credential = GoogleAuthProvider.credential(
+    accessToken: googleAuth.accessToken,
+    idToken: googleAuth.idToken,
+  );
+  final UserCredential userCredential =
+      await FirebaseAuth.instance.signInWithCredential(credential);
+  final String email = userCredential.user?.email ?? googleUser!.email;
+
+  await sharedPreferences.setBool(finWiseMockLoggedInKey, true);
+  await sharedPreferences.setString(finWiseMockEmailKey, email);
+  await sharedPreferences.setBool("firebaseAuthEnabled", true);
+  await updateSettings("currentUserEmail", email,
+      pagesNeedingRefresh: [], updateGlobalState: false);
+  await updateSettings("hasSignedIn", true,
+      pagesNeedingRefresh: [], updateGlobalState: false);
+  await updateSettings("backupSync", true,
+      pagesNeedingRefresh: [], updateGlobalState: false);
+  await updateSettings("autoBackups", true,
+      pagesNeedingRefresh: [], updateGlobalState: false);
+  await updateSettings("syncEveryChange", false,
+      pagesNeedingRefresh: [], updateGlobalState: false);
+
+  final String displayName = userCredential.user?.displayName ??
+      googleUser!.displayName ??
+      finWiseAppName;
+  if ((appStateSettings["username"] ?? "").toString().trim().isEmpty) {
+    await updateSettings("username", displayName,
+        pagesNeedingRefresh: [0], updateGlobalState: false);
+  }
+}
 
 Future<bool> signInGoogle(
     {BuildContext? context,
@@ -158,9 +196,12 @@ Future<bool> signInGoogle(
         googleUser = account;
         await updateSettings("currentUserEmail", googleUser?.email ?? "",
             updateGlobalState: false);
+        await finishFinWiseGoogleSignIn();
       } else {
         throw ("Login failed");
       }
+    } else {
+      await finishFinWiseGoogleSignIn();
     }
     if (waitForCompletion == true && context != null) popRoute(context);
     if (next != null) next();
@@ -228,6 +269,11 @@ Future<bool> testIfHasGmailAccess() async {
 
 Future<bool> signOutGoogle() async {
   await googleSignIn?.signOut();
+  if (finWiseMvpMode) {
+    await FirebaseAuth.instance.signOut();
+    await sharedPreferences.setBool("firebaseAuthEnabled", false);
+    await sharedPreferences.setString(finWiseMockEmailKey, "demo@finwise.local");
+  }
   googleUser = null;
   await updateSettings("currentUserEmail", "", updateGlobalState: false);
   await updateSettings("hasSignedIn", false, updateGlobalState: false);

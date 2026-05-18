@@ -3,6 +3,7 @@ import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/struct/syncClient.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
@@ -212,6 +213,23 @@ class AccountsPageState extends State<AccountsPage> {
                             horizontal: 18.0),
                         child: Row(
                           children: [
+                            Expanded(
+                              child: OutlinedButtonStacked(
+                                text: "Sync now",
+                                iconData: appStateSettings["outlinedIcons"]
+                                    ? Icons.sync_outlined
+                                    : Icons.sync_rounded,
+                                onTap: () async {
+                                  loadingIndeterminateKey.currentState
+                                      ?.setVisibility(true);
+                                  await syncData(context);
+                                  await createSyncBackup();
+                                  loadingIndeterminateKey.currentState
+                                      ?.setVisibility(false);
+                                },
+                              ),
+                            ),
+                            SizedBox(width: 15),
                             Expanded(
                               child: IgnorePointer(
                                 ignoring: currentlyExporting,

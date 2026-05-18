@@ -14,8 +14,7 @@ import 'package:http/http.dart' as http;
 const String finWiseAiBaseUrlSettingKey = "finWiseAiBaseUrl";
 
 String getDefaultFinWiseAiBaseUrl() {
-  if (kIsWeb) return "http://localhost:8000";
-  return "http://192.168.1.36:8000";  // your PC's IP
+  return "https://vishalrai69-finwise.hf.space";
 }
 
 class FinWiseFinancialSnapshot {

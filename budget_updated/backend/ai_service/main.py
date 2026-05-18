@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import google.genai as genai
+import google.generativeai as genai
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv

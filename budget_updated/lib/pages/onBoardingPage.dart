@@ -3,8 +3,10 @@ import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/finwise_mvp.dart';
 import 'package:budget/struct/languageMap.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/struct/syncClient.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/currencyPicker.dart';
@@ -70,6 +72,7 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
   bool selectedIncludeIncome = false;
 
   bool showImage = false;
+  late final TextEditingController nameController;
   final Image imageLanding1 = Image(
     image: AssetImage("assets/landing/Graph.png"),
   );
@@ -89,6 +92,14 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
   }
 
   nextNavigation({bool generatePreview = false}) async {
+    if (finWiseMvpMode) {
+      await forcePrimaryWalletToPkr();
+      final String name = nameController.text.trim();
+      if (name.isNotEmpty) {
+        await updateSettings("username", name,
+            pagesNeedingRefresh: [], updateGlobalState: false);
+      }
+    }
     if (selectedAmount != null && selectedAmount != 0) {
       int order = await database.getAmountOfBudgets();
       await database.createOrUpdateBudget(
@@ -129,8 +140,13 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
     if (widget.popNavigationWhenDone) {
       popRoute(context);
     } else {
-      updateSettings("hasOnboarded", true,
+      await updateSettings("hasOnboarded", true,
           pagesNeedingRefresh: [], updateGlobalState: true);
+    }
+    if (finWiseMvpMode &&
+        appStateSettings["hasSignedIn"] == true &&
+        appStateSettings["backupSync"] == true) {
+      await createSyncBackup();
     }
   }
 
@@ -140,6 +156,9 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
   @override
   void initState() {
     super.initState();
+    nameController = TextEditingController(
+      text: (appStateSettings["username"] ?? "").toString(),
+    );
     _focusAttachment = _focusNode.attach(context, onKeyEvent: (node, event) {
       if (event.logicalKey.keyLabel == "Go Back" ||
           event.logicalKey == LogicalKeyboardKey.escape) {
@@ -160,13 +179,30 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
       // Run here too, so user has a wallet when creating first budget
       // We need to run this after the UI is loaded - after translations are loaded
       await initializeDefaultDatabase();
+      if (finWiseMvpMode) await forcePrimaryWalletToPkr();
     });
   }
 
   @override
   void dispose() {
+    nameController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> forcePrimaryWalletToPkr() async {
+    final List<TransactionWallet> wallets = await database.getAllWallets();
+    if (wallets.isEmpty) return;
+    final String selectedWalletPk =
+        (appStateSettings["selectedWalletPk"] ?? "0").toString();
+    final TransactionWallet wallet = wallets.firstWhere(
+      (wallet) => wallet.walletPk == selectedWalletPk,
+      orElse: () => wallets.first,
+    );
+    if (wallet.currency?.toLowerCase() == "pkr") return;
+    await database.createOrUpdateWallet(
+      wallet.copyWith(currency: const Value("pkr")),
+    );
   }
 
   void nextOnBoardPage() {
@@ -191,7 +227,195 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
   @override
   Widget build(BuildContext context) {
     _focusAttachment.reparent();
-    final List<Widget> children = [
+    final List<Widget> children = finWiseMvpMode
+        ? [
+            OnBoardPage(
+              widgets: [
+                Container(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).height <=
+                              MediaQuery.sizeOf(context).width
+                          ? MediaQuery.sizeOf(context).height * 0.5
+                          : 300),
+                  child: imageLanding1,
+                ),
+                const SizedBox(height: 15),
+                Padding(
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                  child: TextFont(
+                    text: "Welcome to FinWise",
+                    fontWeight: FontWeight.bold,
+                    textAlign: TextAlign.center,
+                    fontSize: 25,
+                    maxLines: 3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                  child: TextFont(
+                    text:
+                        "Track your income, spending, and budgets in Pakistani Rupees.",
+                    textAlign: TextAlign.center,
+                    fontSize: 16,
+                    maxLines: 4,
+                    textColor: getColor(context, "textLight"),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                  child: TextField(
+                    controller: nameController,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                      labelText: "Your name",
+                      prefixIcon: Icon(Icons.person_outline_rounded),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Padding(
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                  child: TextFont(
+                    text: "Currency is fixed to PKR for this MVP.",
+                    textAlign: TextAlign.center,
+                    fontSize: 14,
+                    maxLines: 2,
+                    textColor: getColor(context, "textLight"),
+                  ),
+                ),
+                const SizedBox(height: 35),
+              ],
+            ),
+            OnBoardPage(
+              widgets: [
+                Container(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).height <=
+                              MediaQuery.sizeOf(context).width
+                          ? MediaQuery.sizeOf(context).height * 0.5
+                          : 300),
+                  child: imageLanding2,
+                ),
+                const SizedBox(height: 15),
+                Padding(
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                  child: TextFont(
+                    text: "Set a monthly PKR budget",
+                    fontWeight: FontWeight.bold,
+                    textAlign: TextAlign.center,
+                    fontSize: 25,
+                    maxLines: 3,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                BudgetDetails(
+                  determineBottomButton: () {},
+                  setSelectedAmount: (amount, _) {
+                    setState(() {
+                      selectedAmount = amount;
+                    });
+                  },
+                  initialSelectedAmount: selectedAmount,
+                  setSelectedPeriodLength: (length) {
+                    setState(() {
+                      selectedPeriodLength = length;
+                    });
+                  },
+                  initialSelectedPeriodLength: selectedPeriodLength,
+                  setSelectedRecurrence: (recurrence) {
+                    setState(() {
+                      selectedRecurrence = recurrence;
+                    });
+                  },
+                  initialSelectedRecurrence: selectedRecurrence,
+                  setSelectedStartDate: (date) {
+                    setState(() {
+                      selectedStartDate = date;
+                    });
+                  },
+                  initialSelectedStartDate: selectedStartDate,
+                  setSelectedEndDate: (date) {
+                    setState(() {
+                      selectedEndDate = date;
+                    });
+                  },
+                  initialSelectedEndDate: selectedEndDate,
+                ),
+                Padding(
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                  child: TextFont(
+                    text:
+                        "You can skip this and add budgets later from the Budgets tab.",
+                    textAlign: TextAlign.center,
+                    fontSize: 15,
+                    maxLines: 4,
+                    textColor: getColor(context, "black").withOpacity(0.35),
+                  ),
+                ),
+              ],
+            ),
+            OnBoardPage(
+              widgets: [
+                Container(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).height <=
+                              MediaQuery.sizeOf(context).width
+                          ? MediaQuery.sizeOf(context).height * 0.5
+                          : 300),
+                  child: imageLanding3,
+                ),
+                const SizedBox(height: 15),
+                Padding(
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                  child: TextFont(
+                    text: "You're ready",
+                    fontWeight: FontWeight.bold,
+                    textAlign: TextAlign.center,
+                    fontSize: 25,
+                    maxLines: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                  child: TextFont(
+                    text:
+                        "Start with local tracking, then sign in with Google anytime to save and sync your data.",
+                    textAlign: TextAlign.center,
+                    fontSize: 16,
+                    maxLines: 5,
+                    textColor: getColor(context, "textLight"),
+                  ),
+                ),
+                const SizedBox(height: 25),
+                IntrinsicWidth(
+                  child: Padding(
+                    padding:
+                        const EdgeInsetsDirectional.symmetric(horizontal: 8.0),
+                    child: Button(
+                      label: "Start using FinWise",
+                      onTap: () {
+                        nextNavigation();
+                      },
+                      expandedLayout: false,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ]
+        : [
       // OnBoardPage(
       //   widgets: [
       //     Container(

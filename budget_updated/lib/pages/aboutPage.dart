@@ -7,6 +7,7 @@ import 'package:budget/pages/debugPage.dart';
 import 'package:budget/pages/detailedChangelogPage.dart';
 import 'package:budget/pages/onBoardingPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/finwise_mvp.dart';
 import 'package:budget/struct/languageMap.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
@@ -42,6 +43,154 @@ class AboutPageState extends State<AboutPage> {
             context, Theme.of(context).colorScheme.secondaryContainer,
             amountLight: 0.2, amountDark: 0.6)
         : getColor(context, "lightDarkAccent");
+
+    if (finWiseMvpMode) {
+      return PageFramework(
+        dragDownToDismiss: true,
+        title: "About FinWise",
+        horizontalPaddingConstrained: true,
+        listWidgets: [
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.center,
+            runAlignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              const Image(
+                image: AssetImage("assets/icon/icon-small.png"),
+                height: 72,
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Tappable(
+                    borderRadius: getPlatform() == PlatformOS.isIOS ? 10 : 15,
+                    onLongPress: () {
+                      if (allowDebugFlags) {
+                        pushRoute(context, DebugPage());
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.symmetric(
+                        vertical: 3,
+                        horizontal: 10,
+                      ),
+                      child: TextFont(
+                        text: "FinWise",
+                        fontWeight: FontWeight.bold,
+                        fontSize: 28,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 10,
+                    ),
+                    child: TextFont(
+                      text: getVersionString(),
+                      fontSize: 14,
+                      textColor: getColor(context, "textLight"),
+                      maxLines: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          AboutInfoBox(
+            title: "Pakistan-first personal finance",
+            list: [
+              "Track income, spending, budgets, and AI insights in PKR.",
+              "Google sign-in can save and sync your local data with Drive backup.",
+            ],
+            showLink: false,
+            color: containerColor,
+          ),
+          AboutInfoBox(
+            title: "Built with",
+            list: [
+              "Flutter",
+              "Firebase Authentication",
+              "Google Drive backup and sync",
+              "Gemini AI insights",
+            ],
+            showLink: false,
+            color: containerColor,
+          ),
+          AboutInfoBox(
+            title: "Team",
+            list: [
+              "Vishal - Lead developer",
+              "Saloni - App quality assurance",
+              "Made in Karachi, Pakistan",
+            ],
+            showLink: false,
+            color: containerColor,
+          ),
+          AboutInfoBox(
+            title: "Contact",
+            link: "mailto:vishalraikhatri@gmail.com",
+            list: ["Questions, feedback, and support"],
+            color: containerColor,
+          ),
+          AboutInfoBox(
+            title: "Privacy",
+            list: [
+              "Your finance data stays local unless you sign in and enable Google Drive backup.",
+            ],
+            showLink: false,
+            color: containerColor,
+          ),
+          Padding(
+            padding: const EdgeInsetsDirectional.symmetric(
+              horizontal: 15,
+              vertical: 5,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(
+                getPlatform() == PlatformOS.isIOS ? 10 : 15,
+              ),
+              child: Column(
+                children: [
+                  AboutLinksAction(
+                    containerColor: containerColor,
+                    icon: Icons.list_alt_rounded,
+                    text: "View changelog",
+                    onTap: () => showChangelogForce(context),
+                  ),
+                  const HorizontalBreak(padding: EdgeInsetsDirectional.zero),
+                  AboutLinksAction(
+                    containerColor: containerColor,
+                    icon: Icons.school_rounded,
+                    text: "View intro",
+                    onTap: () => openOnBoarding(context),
+                  ),
+                  const HorizontalBreak(padding: EdgeInsetsDirectional.zero),
+                  AboutLinksAction(
+                    containerColor: containerColor,
+                    icon: Icons.account_balance_rounded,
+                    text: "Licenses and legal",
+                    onTap: () => openLicensesPage(context),
+                  ),
+                  const HorizontalBreak(padding: EdgeInsetsDirectional.zero),
+                  AboutLinksAction(
+                    containerColor: Colors.red.withOpacity(0.4),
+                    icon: Icons.delete_sweep_rounded,
+                    text: "Delete all data",
+                    onTap: () => deleteAllDataFlow(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      );
+    }
 
     Widget cashewInformation = Wrap(
       alignment: WrapAlignment.center,
@@ -113,10 +262,10 @@ class AboutPageState extends State<AboutPage> {
             const EdgeInsetsDirectional.symmetric(horizontal: 15, vertical: 5),
         child: Tappable(
           onTap: () {
-            openUrl('mailto:dapperappdeveloper@gmail.com');
+            openUrl('mailto:https://github.com/vishaltolani8');
           },
           onLongPress: () {
-            copyToClipboard("dapperappdeveloper@gmail.com");
+            copyToClipboard("vishalraikhatri@gmail.com");
           },
           color: containerColor,
           borderRadius: getPlatform() == PlatformOS.isIOS ? 10 : 15,
@@ -133,7 +282,7 @@ class AboutPageState extends State<AboutPage> {
                   maxLines: 5,
                 ),
                 TextFont(
-                  text: "James",
+                  text: "Vishal",
                   fontSize: 29,
                   fontWeight: FontWeight.bold,
                   textColor: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -141,7 +290,7 @@ class AboutPageState extends State<AboutPage> {
                   maxLines: 5,
                 ),
                 TextFont(
-                  text: "dapperappdeveloper@gmail.com",
+                  text: "notso.cool69",
                   fontSize: 16,
                   textAlign: TextAlign.center,
                   maxLines: 5,
@@ -165,14 +314,14 @@ class AboutPageState extends State<AboutPage> {
             child: Column(
               children: [
                 TextFont(
-                  text: "database-designer".tr(),
+                  text: "App Quality Assurance".tr(),
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   textAlign: TextAlign.center,
                   maxLines: 5,
                 ),
                 TextFont(
-                  text: "YuYing",
+                  text: "Saloni",
                   fontSize: 29,
                   fontWeight: FontWeight.bold,
                   textColor: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -190,7 +339,7 @@ class AboutPageState extends State<AboutPage> {
             const EdgeInsetsDirectional.symmetric(horizontal: 15, vertical: 7),
         child: Center(
           child: TextFont(
-            text: "made-in-canada".tr() + " " + "🍁",
+            text: "made-on-Karachi".tr() + " " + "🇵🇰",
             fontSize: 14,
             textAlign: TextAlign.center,
             maxLines: 5,
@@ -974,6 +1123,60 @@ class AboutLinks extends StatelessWidget {
                   : appStateSettings["outlinedIcons"]
                       ? Icons.keyboard_arrow_right_outlined
                       : Icons.keyboard_arrow_right_rounded,
+              size: 22,
+              color: getColor(context, "black").withOpacity(0.3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AboutLinksAction extends StatelessWidget {
+  const AboutLinksAction({
+    required this.containerColor,
+    required this.icon,
+    required this.text,
+    required this.onTap,
+    super.key,
+  });
+
+  final Color containerColor;
+  final IconData icon;
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tappable(
+      onTap: onTap,
+      borderRadius: 0,
+      color: containerColor,
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(
+          start: 18,
+          end: 18,
+          top: 11,
+          bottom: 11,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 25,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFont(
+                text: text,
+                fontSize: 17,
+                maxLines: 3,
+              ),
+            ),
+            Icon(
+              Icons.keyboard_arrow_right_rounded,
               size: 22,
               color: getColor(context, "black").withOpacity(0.3),
             ),

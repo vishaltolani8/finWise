@@ -160,6 +160,16 @@ class MorePages extends StatelessWidget {
                 ],
               ),
             Row(
+              children: [
+                Expanded(
+                  child: GoogleAccountLoginButton(
+                    forceButtonName: "Save and sync data",
+                    isOutlinedButton: true,
+                  ),
+                ),
+              ],
+            ),
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Expanded(
@@ -606,9 +616,9 @@ class SettingsPageContent extends StatelessWidget {
           ),
           SettingsHeader(title: "FinWise MVP"),
           SettingsContainer(
-            title: "Local demo mode",
+            title: "PKR-first MVP",
             description:
-                "Google login, cloud backup, sync, shared budgets, and advanced reminders are reserved for a later update.",
+                "FinWise uses Pakistani Rupees for now. Google sign-in enables Drive backup and sync while advanced reminders and shared budgets stay off.",
             icon: appStateSettings["outlinedIcons"]
                 ? Icons.offline_pin_outlined
                 : Icons.offline_pin_rounded,
