@@ -17,6 +17,16 @@ String getDefaultFinWiseAiBaseUrl() {
   return "https://vishalrai69-finwise.hf.space";
 }
 
+String getFinWiseAiBaseUrl() {
+  final String? savedUrl = sharedPreferences.getString(
+    finWiseAiBaseUrlSettingKey,
+  );
+  if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+    return savedUrl.trim();
+  }
+  return getDefaultFinWiseAiBaseUrl();
+}
+
 class FinWiseFinancialSnapshot {
   FinWiseFinancialSnapshot({
     required this.periodStart,
@@ -370,13 +380,7 @@ class FinWiseAiInsightsService {
   }
 
   String _baseUrl() {
-    final String? savedUrl = sharedPreferences.getString(
-      finWiseAiBaseUrlSettingKey,
-    );
-    if (savedUrl != null && savedUrl.trim().isNotEmpty) {
-      return savedUrl.trim();
-    }
-    return getDefaultFinWiseAiBaseUrl();
+    return getFinWiseAiBaseUrl();
   }
 
   FinWiseAiInsight _fallbackInsight(FinWiseFinancialSnapshot snapshot) {

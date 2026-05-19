@@ -1,5 +1,6 @@
 import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/features/expenses/screens/scan_receipt_screen.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/pages/addCategoryPage.dart';
@@ -87,6 +88,21 @@ dynamic transactionTypeDisplayToEnum = {
   TransactionSpecialType.credit: "Lent",
 };
 
+final Map<String, List<String>> receiptCategoryAliases = {
+  "dining": ["food", "restaurant", "meal", "cafe", "snack"],
+  "food": ["dining", "groceries"],
+  "groceries": ["grocery", "supermarket", "mart", "store"],
+  "shopping": ["shop", "retail", "market"],
+  "transit": ["transport", "fuel", "petrol", "taxi", "ride", "bus"],
+  "transport": ["transit", "fuel", "petrol", "taxi", "ride", "bus"],
+  "fuel": ["transit", "transport", "petrol", "travel"],
+  "entertainment": ["movie", "cinema", "games"],
+  "bills": ["bill", "fees", "utility", "electric", "gas", "internet"],
+  "health": ["healthcare", "medical", "pharmacy", "medicine"],
+  "education": ["school", "college", "university", "books"],
+  "travel": ["transit", "transport", "hotel", "trip"],
+};
+
 class AddTransactionPage extends StatefulWidget {
   AddTransactionPage({
     Key? key,
@@ -104,6 +120,7 @@ class AddTransactionPage extends StatefulWidget {
     this.selectedDate,
     this.selectedNotes,
     this.startInitialAddTransactionSequence = true,
+    this.openReceiptScannerOnStart = false,
     this.transferBalancePopup = false,
     required this.routesToPopAfterDelete,
   }) : super(key: key);
@@ -124,6 +141,7 @@ class AddTransactionPage extends StatefulWidget {
   final DateTime? selectedDate;
   final String? selectedNotes;
   final bool startInitialAddTransactionSequence;
+  final bool openReceiptScannerOnStart;
   final bool transferBalancePopup;
 
   @override
@@ -368,6 +386,114 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     setState(() {
       selectedWalletPk = selectedWalletPkPassed;
     });
+  }
+
+  Future<void> openReceiptScanner() async {
+    try {
+      final dynamic result = await pushRoute(
+        context,
+        const ScanReceiptScreen(),
+      );
+      if (result is ReceiptScanResult) {
+        await applyScannedReceipt(result);
+      }
+    } catch (error) {
+      openSnackbar(
+        SnackbarMessage(
+          title: "Receipt scanner unavailable",
+          description: "Please enter the expense manually.",
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.error_outline_rounded
+              : Icons.error_rounded,
+        ),
+      );
+    }
+  }
+
+  Future<void> applyScannedReceipt(ReceiptScanResult receipt) async {
+    try {
+      if (receipt.title.trim().isNotEmpty) {
+        setSelectedTitle(receipt.title.trim());
+      }
+      if (receipt.amount > 0) {
+        setSelectedAmount(receipt.amount.abs(), receipt.amount.toString());
+      }
+      if (receipt.date != null) {
+        selectedDate = receipt.date!;
+      }
+
+      setSelectedIncome(false, initiallySetting: true);
+      final TransactionCategory? matchedCategory =
+          await findReceiptCategory(receipt.category);
+      if (matchedCategory != null) {
+        setSelectedCategory(matchedCategory, setIncome: false);
+      }
+
+      setState(() {});
+      openSnackbar(
+        SnackbarMessage(
+          title: "Receipt scanned",
+          description: "Review the extracted details before saving.",
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.receipt_long_outlined
+              : Icons.receipt_long_rounded,
+        ),
+      );
+    } catch (error) {
+      openSnackbar(
+        SnackbarMessage(
+          title: "Could not apply receipt",
+          description: "Please enter the expense manually.",
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.error_outline_rounded
+              : Icons.error_rounded,
+        ),
+      );
+    }
+  }
+
+  Future<TransactionCategory?> findReceiptCategory(String categoryName) async {
+    final String normalizedTarget = normalizeReceiptCategoryName(categoryName);
+    if (normalizedTarget.isEmpty || normalizedTarget == "other") return null;
+
+    final List<TransactionCategory> categories =
+        (await database.getAllCategoriesIndexed())
+            .values
+            .where(
+              (category) => category.income == false && category.categoryPk != "0",
+            )
+            .toList();
+
+    for (final TransactionCategory category in categories) {
+      final String normalizedName = normalizeReceiptCategoryName(category.name);
+      if (normalizedName == normalizedTarget) return category;
+    }
+
+    for (final TransactionCategory category in categories) {
+      final String normalizedName = normalizeReceiptCategoryName(category.name);
+      if (normalizedName.contains(normalizedTarget) ||
+          normalizedTarget.contains(normalizedName)) {
+        return category;
+      }
+    }
+
+    final List<String> aliases = receiptCategoryAliases[normalizedTarget] ?? [];
+    for (final String alias in aliases) {
+      final String normalizedAlias = normalizeReceiptCategoryName(alias);
+      for (final TransactionCategory category in categories) {
+        final String normalizedName = normalizeReceiptCategoryName(category.name);
+        if (normalizedName.contains(normalizedAlias) ||
+            normalizedAlias.contains(normalizedName)) {
+          return category;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  String normalizeReceiptCategoryName(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r"[^a-z0-9]+"), "");
   }
 
   Future<Transaction> addDefaultMissingValues(Transaction transaction) async {
@@ -778,6 +904,10 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       Future.delayed(Duration(milliseconds: 0), () async {
         if (widget.transferBalancePopup) {
           openTransferBalancePopup();
+          return;
+        }
+        if (widget.openReceiptScannerOnStart) {
+          await openReceiptScanner();
           return;
         }
         await premiumPopupAddTransaction(context);
@@ -2069,23 +2199,33 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           }
         },
         actions: [
-          widget.transaction != null
-              ? IconButton(
-                  padding: EdgeInsetsDirectional.all(15),
-                  tooltip: "delete-transaction".tr(),
-                  onPressed: () async {
-                    deleteTransactionPopup(
-                      context,
-                      transaction: widget.transaction!,
-                      category: selectedCategory,
-                      routesToPopAfterDelete: widget.routesToPopAfterDelete,
-                    );
-                  },
-                  icon: Icon(appStateSettings["outlinedIcons"]
-                      ? Icons.delete_outlined
-                      : Icons.delete_rounded),
-                )
-              : SizedBox.shrink()
+          if (widget.transaction == null)
+            IconButton(
+              padding: EdgeInsetsDirectional.all(15),
+              tooltip: "Scan receipt",
+              onPressed: openReceiptScanner,
+              icon: Icon(
+                appStateSettings["outlinedIcons"]
+                    ? Icons.camera_alt_outlined
+                    : Icons.camera_alt_rounded,
+              ),
+            ),
+          if (widget.transaction != null)
+            IconButton(
+              padding: EdgeInsetsDirectional.all(15),
+              tooltip: "delete-transaction".tr(),
+              onPressed: () async {
+                deleteTransactionPopup(
+                  context,
+                  transaction: widget.transaction!,
+                  category: selectedCategory,
+                  routesToPopAfterDelete: widget.routesToPopAfterDelete,
+                );
+              },
+              icon: Icon(appStateSettings["outlinedIcons"]
+                  ? Icons.delete_outlined
+                  : Icons.delete_rounded),
+            ),
         ],
         overlay: MinimizeKeyboardFABOverlay(isEnabled: notesInputFocused),
         staticOverlay: Align(

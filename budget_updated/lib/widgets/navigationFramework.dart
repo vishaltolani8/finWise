@@ -558,17 +558,44 @@ class PageNavigationFrameworkState extends State<PageNavigationFramework> {
               bottom: getHeightNavigationSidebar(context) + 15,
               end: 15,
             ),
-            child: AnimateFAB(
-              key: ValueKey(1),
-              fab: AddFAB(
-                tooltip: "add-transaction".tr(),
-                openPage: AddTransactionPage(
-                  routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                AnimateFAB(
+                  key: ValueKey("scan-receipt-fab"),
+                  fab: FAB(
+                    tooltip: "Scan receipt",
+                    iconData: appStateSettings["outlinedIcons"]
+                        ? Icons.camera_alt_outlined
+                        : Icons.camera_alt_rounded,
+                    openPage: AddTransactionPage(
+                      routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+                      openReceiptScannerOnStart: true,
+                    ),
+                    fabSize: getIsFullScreen(context) == false ? 52 : 60,
+                    borderRadius: getIsFullScreen(context) == false ? 16 : 18,
+                  ),
+                  condition:
+                      (finWiseMvpMode ? [0, 1, 2] : [0, 1, 2, 14]).contains(
+                    currentPage,
+                  ),
                 ),
-              ),
-              condition: (finWiseMvpMode ? [0, 1, 2] : [0, 1, 2, 14]).contains(
-                currentPage,
-              ),
+                const SizedBox(height: 10),
+                AnimateFAB(
+                  key: ValueKey(1),
+                  fab: AddFAB(
+                    tooltip: "add-transaction".tr(),
+                    openPage: AddTransactionPage(
+                      routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+                    ),
+                  ),
+                  condition:
+                      (finWiseMvpMode ? [0, 1, 2] : [0, 1, 2, 14]).contains(
+                    currentPage,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
