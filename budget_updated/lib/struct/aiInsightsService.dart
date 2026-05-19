@@ -153,7 +153,7 @@ class FinWiseAiInsight {
         (json["scenario"] as Map?)?.cast<String, dynamic>() ?? {},
       ),
       riskFlags: _stringList(json["riskFlags"]),
-      source: _stringValue(json["source"], fallback: "gemini"),
+      source: _stringValue(json["source"], fallback: "groq"),
     );
   }
 }

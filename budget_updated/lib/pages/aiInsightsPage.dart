@@ -4,6 +4,7 @@ import 'package:budget/functions.dart';
 import 'package:budget/struct/aiInsightsService.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
+import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,9 @@ class AiInsightsPage extends StatefulWidget {
 class AiInsightsPageState extends State<AiInsightsPage> {
   final ScrollController _scrollController = ScrollController();
   late Future<FinWiseAiBundle> _insightsFuture;
+  double? _scenarioMonthlySaving;
+  int? _scenarioYears;
+  int _selectedCategoryIndex = 0;
 
   @override
   void initState() {
@@ -48,7 +52,28 @@ class AiInsightsPageState extends State<AiInsightsPage> {
 
   void _refresh() {
     setState(() {
+      _scenarioMonthlySaving = null;
+      _scenarioYears = null;
+      _selectedCategoryIndex = 0;
       _insightsFuture = _loadInsights();
+    });
+  }
+
+  void _setScenarioMonthlySaving(double value) {
+    setState(() {
+      _scenarioMonthlySaving = value;
+    });
+  }
+
+  void _setScenarioYears(double value) {
+    setState(() {
+      _scenarioYears = value.round();
+    });
+  }
+
+  void _setSelectedCategoryIndex(int index) {
+    setState(() {
+      _selectedCategoryIndex = index;
     });
   }
 
@@ -102,15 +127,27 @@ class AiInsightsPageState extends State<AiInsightsPage> {
                         "AI guidance becomes useful after FinWise has income and expense entries to analyze.",
                     compact: true,
                   ),
+                _InsightHero(bundle: bundle),
+                const SizedBox(height: 12),
                 _SnapshotSummary(snapshot: bundle.snapshot),
                 const SizedBox(height: 12),
                 _InsightSummaryCard(bundle: bundle),
                 const SizedBox(height: 12),
                 _RecommendationsCard(insight: bundle.insight),
                 const SizedBox(height: 12),
-                _ScenarioCard(bundle: bundle),
+                _ScenarioCard(
+                  bundle: bundle,
+                  monthlySavingOverride: _scenarioMonthlySaving,
+                  yearsOverride: _scenarioYears,
+                  onMonthlySavingChanged: _setScenarioMonthlySaving,
+                  onYearsChanged: _setScenarioYears,
+                ),
                 const SizedBox(height: 12),
-                _TopCategoriesCard(snapshot: bundle.snapshot),
+                _TopCategoriesCard(
+                  snapshot: bundle.snapshot,
+                  selectedIndex: _selectedCategoryIndex,
+                  onSelected: _setSelectedCategoryIndex,
+                ),
                 const SizedBox(height: 12),
                 _BudgetVarianceCard(snapshot: bundle.snapshot),
                 const SizedBox(height: 24),
@@ -162,6 +199,159 @@ class _SnapshotSummary extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
         ),
       ],
+    );
+  }
+}
+
+class _InsightHero extends StatelessWidget {
+  const _InsightHero({required this.bundle});
+
+  final FinWiseAiBundle bundle;
+
+  @override
+  Widget build(BuildContext context) {
+    final FinWiseFinancialSnapshot snapshot = bundle.snapshot;
+    final double savingsRate = snapshot.savingsRate.isFinite
+        ? snapshot.savingsRate.clamp(-1, 1).toDouble()
+        : 0;
+    final int score = ((savingsRate + 0.2) / 0.5 * 100).clamp(0, 100).round();
+    final Color scoreColor = score >= 70
+        ? getColor(context, "incomeAmount")
+        : score >= 40
+        ? Theme.of(context).colorScheme.primary
+        : getColor(context, "expenseAmount");
+    final String focus = snapshot.topCategories.isEmpty
+        ? "add a few expenses"
+        : "watch ${snapshot.topCategories.first.name}";
+    final String status = score >= 70
+        ? "Strong month"
+        : score >= 40
+        ? "Room to improve"
+        : "Needs attention";
+
+    return _AiCard(
+      padding: const EdgeInsetsDirectional.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                height: 82,
+                width: 82,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: score / 100,
+                      strokeWidth: 8,
+                      color: scoreColor,
+                      backgroundColor: getColor(context, "lightDarkAccent"),
+                    ),
+                    TextFont(
+                      text: score.toString(),
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      textColor: scoreColor,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFont(
+                      text: status,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 6),
+                    TextFont(
+                      text:
+                          "Savings rate ${(snapshot.savingsRate * 100).toStringAsFixed(1)}%. This month, $focus.",
+                      fontSize: 14,
+                      textColor: getColor(context, "textLight"),
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _HeroPill(
+                  icon: bundle.insight.source == "groq"
+                      ? Icons.bolt_rounded
+                      : Icons.offline_bolt_rounded,
+                  label:
+                      bundle.insight.source == "groq" ? "Groq AI" : "Fallback",
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HeroPill(
+                  icon: Icons.receipt_long_rounded,
+                  label: "${snapshot.transactionCount} entries",
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HeroPill(
+                  icon: Icons.flag_rounded,
+                  label: snapshot.budgetStatuses.isEmpty
+                      ? "No budgets"
+                      : "${snapshot.budgetStatuses.length} budgets",
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroPill extends StatelessWidget {
+  const _HeroPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: 10,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: TextFont(
+              text: label,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              maxLines: 1,
+              autoSizeText: true,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -219,9 +409,11 @@ class _InsightSummaryCard extends StatelessWidget {
         children: [
           _SectionHeader(
             icon: Icons.auto_awesome_rounded,
-            title: bundle.insight.source == "local-fallback"
+            title: bundle.insight.source == "groq"
+                ? "Groq insight"
+                : bundle.insight.source == "local-fallback"
                 ? "Financial guidance"
-                : "Gemini insight",
+                : "Local guidance",
           ),
           const SizedBox(height: 12),
           TextFont(
@@ -277,14 +469,48 @@ class _RecommendationsCard extends StatelessWidget {
 }
 
 class _ScenarioCard extends StatelessWidget {
-  const _ScenarioCard({required this.bundle});
+  const _ScenarioCard({
+    required this.bundle,
+    required this.monthlySavingOverride,
+    required this.yearsOverride,
+    required this.onMonthlySavingChanged,
+    required this.onYearsChanged,
+  });
 
   final FinWiseAiBundle bundle;
+  final double? monthlySavingOverride;
+  final int? yearsOverride;
+  final ValueChanged<double> onMonthlySavingChanged;
+  final ValueChanged<double> onYearsChanged;
 
   @override
   Widget build(BuildContext context) {
     final AllWallets allWallets = Provider.of<AllWallets>(context);
     final FinWiseScenario scenario = bundle.insight.scenario;
+    final double baselineSaving = scenario.monthlySaving > 0
+        ? scenario.monthlySaving
+        : (bundle.snapshot.savings > 0 ? bundle.snapshot.savings : 1000);
+    final double selectedMonthlySaving = (monthlySavingOverride ?? baselineSaving)
+        .clamp(0, baselineSaving * 2)
+        .toDouble();
+    final int selectedYears = (yearsOverride ?? scenario.years)
+        .clamp(1, 20)
+        .toInt();
+    final double assumedAnnualReturn = scenario.assumedAnnualReturn > 0
+        ? scenario.assumedAnnualReturn
+        : 0.12;
+    final double projectedAmount = _futureValueMonthly(
+      monthlySaving: selectedMonthlySaving,
+      annualReturn: assumedAnnualReturn,
+      years: selectedYears,
+    );
+    final double sliderMax = baselineSaving <= 0 ? 10000 : baselineSaving * 2;
+    final double projectionProgress = projectedAmount <= 0
+        ? 0.04
+        : (projectedAmount / (sliderMax * selectedYears * 18))
+              .clamp(0.08, 1)
+              .toDouble();
+
     return _AiCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,24 +525,44 @@ class _ScenarioCard extends StatelessWidget {
               Expanded(
                 child: _MiniMetric(
                   label: "Monthly saving",
-                  value: convertToMoney(allWallets, scenario.monthlySaving),
+                  value: convertToMoney(allWallets, selectedMonthlySaving),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _MiniMetric(
-                  label: "${scenario.years} year projection",
-                  value: convertToMoney(allWallets, scenario.projectedAmount),
+                  label: "$selectedYears year projection",
+                  value: convertToMoney(allWallets, projectedAmount),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          _SliderBlock(
+            label: "Monthly saving",
+            value: selectedMonthlySaving,
+            min: 0,
+            max: sliderMax <= 0 ? 10000 : sliderMax,
+            divisions: 20,
+            displayValue: convertToMoney(allWallets, selectedMonthlySaving),
+            onChanged: onMonthlySavingChanged,
+          ),
+          const SizedBox(height: 8),
+          _SliderBlock(
+            label: "Time horizon",
+            value: selectedYears.toDouble(),
+            min: 1,
+            max: 20,
+            divisions: 19,
+            displayValue: "$selectedYears years",
+            onChanged: onYearsChanged,
           ),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               minHeight: 10,
-              value: scenario.monthlySaving <= 0 ? 0.05 : 0.72,
+              value: projectionProgress,
               backgroundColor: Theme.of(
                 context,
               ).colorScheme.primary.withValues(alpha: 0.12),
@@ -324,7 +570,8 @@ class _ScenarioCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextFont(
-            text: scenario.explanation,
+            text:
+                "Assumes ${(assumedAnnualReturn * 100).toStringAsFixed(0)}% annual return. This is an educational projection, not a guaranteed result.",
             fontSize: 14,
             textColor: getColor(context, "textLight"),
             maxLines: 6,
@@ -335,10 +582,85 @@ class _ScenarioCard extends StatelessWidget {
   }
 }
 
+class _SliderBlock extends StatelessWidget {
+  const _SliderBlock({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.displayValue,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final String displayValue;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextFont(
+                text: label,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                maxLines: 1,
+              ),
+            ),
+            TextFont(
+              text: displayValue,
+              fontSize: 13,
+              textColor: getColor(context, "textLight"),
+              maxLines: 1,
+              autoSizeText: true,
+            ),
+          ],
+        ),
+        Slider(
+          min: min,
+          max: max <= min ? min + 1 : max,
+          value: value.clamp(min, max <= min ? min + 1 : max).toDouble(),
+          divisions: divisions,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+}
+
+double _futureValueMonthly({
+  required double monthlySaving,
+  required double annualReturn,
+  required int years,
+}) {
+  if (monthlySaving <= 0) return 0;
+  final double monthlyRate = annualReturn / 12;
+  double value = 0;
+  for (int i = 0; i < years * 12; i++) {
+    value = (value + monthlySaving) * (1 + monthlyRate);
+  }
+  return value;
+}
+
 class _TopCategoriesCard extends StatelessWidget {
-  const _TopCategoriesCard({required this.snapshot});
+  const _TopCategoriesCard({
+    required this.snapshot,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
 
   final FinWiseFinancialSnapshot snapshot;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +669,12 @@ class _TopCategoriesCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final double maxAmount = snapshot.topCategories.first.amount;
+    final int safeSelectedIndex = selectedIndex
+        .clamp(0, snapshot.topCategories.length - 1)
+        .toInt();
+    final FinWiseCategoryTotal selected =
+        snapshot.topCategories[safeSelectedIndex];
+    final double monthlyImpact = selected.amount * 0.10;
     return _AiCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,43 +684,95 @@ class _TopCategoriesCard extends StatelessWidget {
             title: "Top spending categories",
           ),
           const SizedBox(height: 12),
-          for (final FinWiseCategoryTotal category
-              in snapshot.topCategories.take(5))
-            Padding(
-              padding: const EdgeInsetsDirectional.only(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFont(
-                          text: category.name,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+          for (final MapEntry<int, FinWiseCategoryTotal> entry in snapshot
+              .topCategories
+              .take(5)
+              .toList()
+              .asMap()
+              .entries)
+            Tappable(
+              onTap: () => onSelected(entry.key),
+              borderRadius: 8,
+              child: Container(
+                margin: const EdgeInsetsDirectional.only(bottom: 10),
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: 10,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: entry.key == safeSelectedIndex
+                      ? Theme.of(context).colorScheme.primary.withValues(
+                            alpha: 0.08,
+                          )
+                      : null,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFont(
+                            text: entry.value.name,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            maxLines: 1,
+                          ),
+                        ),
+                        TextFont(
+                          text: convertToMoney(allWallets, entry.value.amount),
+                          fontSize: 13,
+                          textColor: getColor(context, "textLight"),
                           maxLines: 1,
                         ),
-                      ),
-                      TextFont(
-                        text: convertToMoney(allWallets, category.amount),
-                        fontSize: 13,
-                        textColor: getColor(context, "textLight"),
-                        maxLines: 1,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      minHeight: 8,
-                      value: maxAmount <= 0 ? 0 : category.amount / maxAmount,
-                      backgroundColor: getColor(context, "lightDarkAccent"),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        minHeight: 8,
+                        value: maxAmount <= 0
+                            ? 0
+                            : entry.value.amount / maxAmount,
+                        color: entry.key == safeSelectedIndex
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                        backgroundColor: getColor(context, "lightDarkAccent"),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsetsDirectional.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(
+                alpha: 0.08,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.savings_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFont(
+                    text:
+                        "Cut ${selected.name} by 10% to free about ${convertToMoney(allWallets, monthlyImpact)} monthly, or ${convertToMoney(allWallets, monthlyImpact * 12)} yearly.",
+                    fontSize: 13.5,
+                    maxLines: 4,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

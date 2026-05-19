@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import google.generativeai as genai
+from groq import Groq
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -16,10 +16,11 @@ env_path = Path(__file__).parent / ".env"
 load_dotenv(env_path)
 
 # Debug: Print if API key is loaded (remove in production)
-api_key = os.getenv("GEMINI_API_KEY", "").strip()
-print(f"Gemini API Key loaded: {'Yes' if api_key else 'NO - Check .env file!'}")
+api_key = os.getenv("GROQ_API_KEY", "").strip()
+print(f"Groq API Key loaded: {'Yes' if api_key else 'NO - Check .env file!'}")
 
 app = FastAPI(title="FinWise AI Service", version="0.1.0")
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,51 +79,83 @@ def health() -> dict[str, str]:
 
 @app.get("/debug")
 def debug_info() -> dict[str, Any]:
-    """Debug endpoint to check API key and Gemini connection"""
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    """Debug endpoint to check API key and Groq connection"""
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
     has_key = bool(api_key)
-    gemini_status = "not tested"
-    gemini_error = None
+    ai_status = "not tested"
+    ai_error = None
 
     if has_key:
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            # Test with a simple prompt
-            response = model.generate_content("Say 'Gemini is working!' in exactly 3 words")
-            gemini_status = "working" if "Gemini" in response.text else f"unexpected: {response.text}"
+            response_text = generate_ai_text(
+                api_key,
+                "Say 'Groq is working!' in exactly 3 words",
+            )
+            ai_status = (
+                "working"
+                if "Groq" in response_text
+                else f"unexpected: {response_text}"
+            )
         except Exception as e:
-            gemini_status = "error"
-            gemini_error = str(e)
+            ai_status = "error"
+            ai_error = str(e)
 
     return {
         "api_key_present": has_key,
         "api_key_prefix": api_key[:10] + "..." if api_key else "",
-        "gemini_status": gemini_status,
-        "gemini_error": gemini_error,
+        "provider": "groq",
+        "model": GROQ_MODEL,
+        "ai_status": ai_status,
+        "ai_error": ai_error,
     }
 
 
 @app.post("/api/insights")
 def create_insights(payload: InsightRequest) -> dict[str, Any]:
     fallback = build_fallback(payload.snapshot)
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
     if not api_key:
         return fallback
 
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        response = model.generate_content(build_prompt(payload))
-        parsed = parse_json_response(response.text)
+        response_text = generate_ai_text(api_key, build_prompt(payload))
+        parsed = parse_json_response(response_text)
         return normalize_response(parsed, fallback)
     except Exception as exc:
         fallback["source"] = "fallback-after-error"
         fallback["riskFlags"] = [
             *fallback.get("riskFlags", []),
-            f"Gemini service unavailable: {exc}",
+            user_friendly_ai_error(exc),
         ]
         return fallback
+
+
+def user_friendly_ai_error(exc: Exception) -> str:
+    message = str(exc)
+    if "429" in message or "RESOURCE_EXHAUSTED" in message:
+        return "AI quota is temporarily unavailable, so FinWise used local guidance for this insight."
+    return "AI guidance is temporarily unavailable, so FinWise used local guidance for this insight."
+
+
+def generate_ai_text(api_key: str, prompt: str) -> str:
+    client = Groq(api_key=api_key)
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are FinWise, a careful financial education assistant. "
+                    "Return only valid JSON."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+        max_completion_tokens=1200,
+        response_format={"type": "json_object"},
+    )
+    return response.choices[0].message.content or ""
 
 
 def build_prompt(payload: InsightRequest) -> str:
@@ -150,7 +183,7 @@ Rules:
     "explanation": "short explanation"
   }},
   "riskFlags": ["optional warnings"],
-  "source": "gemini"
+  "source": "groq"
 }}
 
 User: {user_name}
@@ -199,7 +232,7 @@ def normalize_response(parsed: dict[str, Any], fallback: dict[str, Any]) -> dict
             ),
         },
         "riskFlags": string_list_or(parsed.get("riskFlags"), fallback["riskFlags"]),
-        "source": "gemini",
+        "source": "groq",
     }
 
 
