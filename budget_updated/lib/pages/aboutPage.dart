@@ -116,7 +116,7 @@ class AboutPageState extends State<AboutPage> {
               "Flutter",
               "Firebase Authentication",
               "Google Drive backup and sync",
-              "Gemini AI insights",
+              "Groq AI insights",
             ],
             showLink: false,
             color: containerColor,
@@ -156,13 +156,6 @@ class AboutPageState extends State<AboutPage> {
               ),
               child: Column(
                 children: [
-                  AboutLinksAction(
-                    containerColor: containerColor,
-                    icon: Icons.list_alt_rounded,
-                    text: "View changelog",
-                    onTap: () => showChangelogForce(context),
-                  ),
-                  const HorizontalBreak(padding: EdgeInsetsDirectional.zero),
                   AboutLinksAction(
                     containerColor: containerColor,
                     icon: Icons.school_rounded,
@@ -1004,7 +997,9 @@ class AboutLinks extends StatelessWidget {
             _buildTappable(
               context: context,
               isExternalLink: true,
-              onTap: () => openUrl("https://github.com/jameskokoska/Cashew"),
+              onTap: () => openUrl(
+                "mailto:vishalraikhatri@gmail.com?subject=FinWise%20source",
+              ),
               icon: MoreIcons.github,
               text: "app-is-open-source".tr(namedArgs: {"app": globalAppName}),
             ),
@@ -1012,7 +1007,9 @@ class AboutLinks extends StatelessWidget {
             _buildTappable(
               context: context,
               isExternalLink: true,
-              onTap: () => openUrl("https://cashewapp.web.app/faq.html"),
+              onTap: () => openUrl(
+                "mailto:vishalraikhatri@gmail.com?subject=FinWise%20help",
+              ),
               icon: appStateSettings["outlinedIcons"]
                   ? Icons.live_help_outlined
                   : Icons.live_help_rounded,
@@ -1053,7 +1050,9 @@ class AboutLinks extends StatelessWidget {
             _buildTappable(
               context: context,
               isExternalLink: true,
-              onTap: () => openUrl("http://cashewapp.web.app/policy.html"),
+              onTap: () => openUrl(
+                "mailto:vishalraikhatri@gmail.com?subject=FinWise%20privacy",
+              ),
               icon: appStateSettings["outlinedIcons"]
                   ? Icons.policy_outlined
                   : Icons.policy_rounded,
@@ -1195,8 +1194,7 @@ class AboutDeepLinking extends StatelessWidget {
     return AboutInfoBox(
       title: "deep-linking".tr(),
       showLink: false,
-      link:
-          "https://github.com/jameskokoska/Cashew?tab=readme-ov-file#app-links",
+      link: "mailto:vishalraikhatri@gmail.com?subject=FinWise%20app%20links",
       list: [
         "deep-linking-description".tr(),
       ],

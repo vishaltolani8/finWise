@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
@@ -129,9 +128,8 @@ class FinWiseReceiptScanService {
       );
 
       final http.Client client = _client ?? (createdClient = http.Client());
-      final http.StreamedResponse streamedResponse = await client
-          .send(request)
-          .timeout(const Duration(seconds: 35));
+      final http.StreamedResponse streamedResponse =
+          await client.send(request).timeout(const Duration(seconds: 35));
       final http.Response response = await http.Response.fromStream(
         streamedResponse,
       );
@@ -176,8 +174,8 @@ class FinWiseReceiptScanService {
       final String message = error.toString().contains("429")
           ? _rateLimitedMessage
           : error.toString().contains("404")
-          ? "Receipt scanner endpoint not found. Please redeploy the AI backend."
-          : "Receipt scanning is temporarily unavailable. Please enter the expense manually.";
+              ? "Receipt scanner endpoint not found. Please redeploy the AI backend."
+              : "Receipt scanning is temporarily unavailable. Please enter the expense manually.";
       throw ReceiptScanException(
         message,
         rateLimited: message == _rateLimitedMessage,
@@ -333,6 +331,29 @@ class _ScanReceiptScreenState extends State<ScanReceiptScreen> {
   }
 
   Future<_ReceiptImageSelection?> _pickReceiptImage(ImageSource source) async {
+    if (source == ImageSource.gallery) {
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return null;
+
+      final PlatformFile file = result.files.first;
+      final String fileName =
+          file.name.trim().isEmpty ? "receipt.jpg" : file.name;
+      if (file.bytes != null && file.bytes!.isNotEmpty) {
+        return _ReceiptImageSelection(bytes: file.bytes!, fileName: fileName);
+      }
+
+      final String? path = file.path;
+      if (path == null || path.trim().isEmpty) return null;
+      final XFile image = XFile(path);
+      final Uint8List bytes = await image.readAsBytes();
+      if (bytes.isEmpty) return null;
+      return _ReceiptImageSelection(bytes: bytes, fileName: fileName);
+    }
+
     final XFile? image = await _picker.pickImage(
       source: source,
       imageQuality: 82,
@@ -347,36 +368,6 @@ class _ScanReceiptScreenState extends State<ScanReceiptScreen> {
       );
     }
 
-    if (source != ImageSource.gallery) return null;
-
-    final FilePickerResult? filePickerResult =
-        await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-      withData: true,
-    );
-    if (filePickerResult == null || filePickerResult.files.isEmpty) return null;
-
-    final PlatformFile file = filePickerResult.files.first;
-    final String fileName = file.name.trim().isEmpty ? "receipt.jpg" : file.name;
-
-    if (file.bytes != null && file.bytes!.isNotEmpty) {
-      return _ReceiptImageSelection(
-        bytes: file.bytes!,
-        fileName: fileName,
-      );
-    }
-
-    if (file.path != null && file.path!.trim().isNotEmpty) {
-      final XFile fallbackImage = XFile(file.path!);
-      final Uint8List bytes = await fallbackImage.readAsBytes();
-      if (bytes.isNotEmpty) {
-        return _ReceiptImageSelection(
-          bytes: bytes,
-          fileName: fileName,
-        );
-      }
-    }
     return null;
   }
 
@@ -454,8 +445,9 @@ class _ScanReceiptScreenState extends State<ScanReceiptScreen> {
                       icon: appStateSettings["outlinedIcons"]
                           ? Icons.check_circle_outline_rounded
                           : Icons.check_circle_rounded,
-                      disabled:
-                          _isScanning || _result == null || !_result!.hasUsableData,
+                      disabled: _isScanning ||
+                          _result == null ||
+                          !_result!.hasUsableData,
                       onTap: () {
                         if (_result != null) popRoute(context, _result);
                       },
@@ -513,7 +505,8 @@ class _EmptyReceiptScanCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextFont(
-            text: "Capture a receipt and FinWise will read the expense details.",
+            text:
+                "Capture a receipt and FinWise will read the expense details.",
             fontSize: 16,
             fontWeight: FontWeight.bold,
             textAlign: TextAlign.center,

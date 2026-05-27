@@ -369,7 +369,9 @@ class AccountsPageState extends State<AccountsPage> {
                                 borderRadius: 15,
                                 onTap: () {
                                   openUrl(
-                                      "https://cashewapp.web.app/policy.html");
+                                    "mailto:vishalraikhatri@gmail.com"
+                                    "?subject=FinWise%20privacy",
+                                  );
                                 },
                                 child: Padding(
                                   padding:

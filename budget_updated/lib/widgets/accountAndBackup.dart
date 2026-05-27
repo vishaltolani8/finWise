@@ -272,7 +272,8 @@ Future<bool> signOutGoogle() async {
   if (finWiseMvpMode) {
     await FirebaseAuth.instance.signOut();
     await sharedPreferences.setBool("firebaseAuthEnabled", false);
-    await sharedPreferences.setString(finWiseMockEmailKey, "demo@finwise.local");
+    await sharedPreferences.setString(
+        finWiseMockEmailKey, "demo@finwise.local");
   }
   googleUser = null;
   await updateSettings("currentUserEmail", "", updateGlobalState: false);
@@ -1561,7 +1562,7 @@ Future<bool> saveDriveFileToDevice({
   await for (var data in response.stream) {
     dataStore.insertAll(dataStore.length, data);
   }
-  String fileName = "cashew-" +
+  String fileName = "finwise-" +
       ((fileToSave.name ?? "") +
               cleanFileNameString(
                   (fileToSave.modifiedTime ?? DateTime.now()).toString()))

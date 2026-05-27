@@ -84,7 +84,7 @@ class PremiumPage extends StatelessWidget {
                               ),
                               Column(
                                 children: [
-                                  CashewProBanner(large: true),
+                                  FinWiseProBanner(large: true),
                                   SizedBox(height: 4),
                                   TextFont(
                                     text: "budget-like-a-pro".tr() +
@@ -427,8 +427,8 @@ class _FreePremiumMessageState extends State<FreePremiumMessage> {
   }
 }
 
-class CashewProBanner extends StatelessWidget {
-  const CashewProBanner({this.large = false, this.fontColor, super.key});
+class FinWiseProBanner extends StatelessWidget {
+  const FinWiseProBanner({this.large = false, this.fontColor, super.key});
   final bool large;
   final Color? fontColor;
 
@@ -531,7 +531,7 @@ class ManageSubscription extends StatelessWidget {
                     fontSize: 16,
                   ),
             SizedBox(height: 10),
-            CashewProBanner(fontColor: getColor(context, "black")),
+            FinWiseProBanner(fontColor: getColor(context, "black")),
             TextFont(
               text: currentPlanName ?? "",
               fontSize: 23,
@@ -708,8 +708,9 @@ showHelpRestorePopup(BuildContext context) {
       bool openResult = await openUrl('mailto:dapperappdeveloper@gmail.com');
       if (openResult == false) copyToClipboard("dapperappdeveloper@gmail.com");
     },
-    onExtra: () =>
-        openUrl("https://cashewapp.web.app/faq.html#restoring-purchases"),
+    onExtra: () => openUrl(
+      "mailto:vishalraikhatri@gmail.com?subject=FinWise%20purchases",
+    ),
     onExtraLabel: "FAQ".tr(),
   );
 }
@@ -1297,7 +1298,7 @@ class _FadeOutAndLockFeatureState extends State<FadeOutAndLockFeature> {
                   fontSize: 15,
                 ),
                 SizedBox(height: 5),
-                CashewProBanner(fontColor: getColor(context, "black")),
+                FinWiseProBanner(fontColor: getColor(context, "black")),
                 SizedBox(height: 15),
                 LowKeyButton(
                   onTap: openPremiumPopup,
@@ -1459,7 +1460,7 @@ class PremiumBanner extends StatelessWidget {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    CashewProBanner(),
+                                    FinWiseProBanner(),
                                     purchased
                                         ? Container(
                                             margin:

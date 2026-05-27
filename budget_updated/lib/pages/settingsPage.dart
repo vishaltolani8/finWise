@@ -110,7 +110,10 @@ class MoreActionsPageState extends State<MoreActionsPage> {
                             ? Icons.live_help_outlined
                             : Icons.live_help_rounded,
                         action: () {
-                          openUrl("https://cashewapp.web.app/faq.html");
+                          openUrl(
+                            "mailto:vishalraikhatri@gmail.com"
+                            "?subject=FinWise%20help",
+                          );
                         },
                       ),
                   ],
@@ -216,6 +219,22 @@ class MorePages extends StatelessWidget {
               children: [
                 Expanded(
                   child: SettingsContainerOpenPage(
+                    openPage: const CsvDataPage(),
+                    title: "CSV data",
+                    description: "Import and export transaction CSV files",
+                    icon: appStateSettings["outlinedIcons"]
+                        ? Icons.import_export_outlined
+                        : Icons.import_export_rounded,
+                    isOutlined: true,
+                    isWideOutlined: true,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: SettingsContainerOpenPage(
                     openPage: AboutPage(),
                     title: "about-app".tr(namedArgs: {"app": globalAppName}),
                     icon: navBarIconsData["about"]!.iconData,
@@ -280,7 +299,7 @@ class MorePages extends StatelessWidget {
               //     padding: EdgeInsetsDirectional.symmetric(vertical: 5, horizontal: 4),
               //     child: SettingsContainer(
               //       onTap: () {
-              //         openUrl("https://github.com/jameskokoska/Cashew");
+              //         openUrl("mailto:vishalraikhatri@gmail.com");
               //       },
               //       title: "open-source".tr(),
               //       icon: MoreIcons.github,
@@ -451,6 +470,22 @@ class MorePages extends StatelessWidget {
           if (hasSideNavigation) SettingsPageContent(),
         ],
       ),
+    );
+  }
+}
+
+class CsvDataPage extends StatelessWidget {
+  const CsvDataPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return PageFramework(
+      title: "CSV data",
+      dragDownToDismiss: true,
+      listWidgets: const [
+        ExportCSV(),
+        ImportCSV(),
+      ],
     );
   }
 }

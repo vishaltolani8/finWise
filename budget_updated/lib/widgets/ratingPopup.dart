@@ -124,7 +124,10 @@ class _RatingPopupState extends State<RatingPopup> {
                         ? Icons.open_in_new_outlined
                         : Icons.open_in_new_rounded,
                     onTap: () async {
-                      openUrl("https://cashewapp.web.app/faq.html");
+                      openUrl(
+                        "mailto:vishalraikhatri@gmail.com"
+                        "?subject=FinWise%20feedback%20help",
+                      );
                     },
                   ),
               ],

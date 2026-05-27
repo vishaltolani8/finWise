@@ -17,6 +17,7 @@ import 'package:budget/pages/homePage/homePageAllSpendingSummary.dart';
 import 'package:budget/pages/editHomePage.dart';
 import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/pages/homePage/homePageCreditDebts.dart';
+import 'package:budget/struct/finwise_mvp.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
@@ -429,7 +430,8 @@ class _HomePageRatingBoxState extends State<HomePageRatingBox> {
 
   @override
   void initState() {
-    if ((appStateSettings["numLogins"] + 1) % 13 == 0 &&
+    if (!finWiseMvpMode &&
+        (appStateSettings["numLogins"] + 1) % 13 == 0 &&
         appStateSettings["dismissedStoreRating"] != true &&
         appStateSettings["openedStoreRating"] != true) {
       setState(() {
@@ -458,7 +460,7 @@ class _HomePageRatingBoxState extends State<HomePageRatingBox> {
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb) return SizedBox.shrink();
+    if (finWiseMvpMode || kIsWeb) return SizedBox.shrink();
     return AnimatedSizeSwitcher(
       child: hidden
           ? Container(
@@ -480,7 +482,7 @@ class _HomePageRatingBoxState extends State<HomePageRatingBox> {
                 child: Column(
                   children: [
                     TextFont(
-                      text: "enjoying-cashew-question".tr(),
+                      text: "enjoying-finwise-question".tr(),
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                       textAlign: TextAlign.center,

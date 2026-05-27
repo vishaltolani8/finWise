@@ -350,7 +350,7 @@ Future executeAppLink(BuildContext? context, Uri uri,
       }
       break;
 
-    // Ensures we can see other pages of the Cashew website
+    // Ensures app links remain inside supported FinWise pages.
     // Such as the FAQ
     // default:
     //   if (context != null)
@@ -385,7 +385,7 @@ Future executeAppLink(BuildContext? context, Uri uri,
 //             loadingIndeterminateKey.currentState?.setVisibility(false);
 //           },
 //           onNavigationRequest: (NavigationRequest request) {
-//             if (request.url.startsWith('https://cashewapp.web.app/')) {
+//             if (request.url.startsWith('https://finwise.example/')) {
 //               return NavigationDecision.navigate;
 //             } else {
 //               openUrl(request.url);

@@ -1,11 +1,11 @@
 {
-    "name": "Cashew",
-    "short_name": "Cashew",
+    "name": "FinWise",
+    "short_name": "FinWise",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#5f85c2",
-    "description": "A budget and financial tracking application designed for you",
+    "description": "A PKR-first personal finance app with budgets, receipt scanning, and AI insights",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
