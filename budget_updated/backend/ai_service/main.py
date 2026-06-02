@@ -22,9 +22,14 @@ api_key = os.getenv("GROQ_API_KEY", "").strip()
 print(f"Groq API Key loaded: {'Yes' if api_key else 'NO - Check .env file!'}")
 
 app = FastAPI(title="FinWise AI Service", version="0.1.0")
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+GROQ_FALLBACK_MODEL = os.getenv(
+    "GROQ_FALLBACK_MODEL",
+    "llama-3.1-8b-instant",
+).strip()
 GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 MAX_RECEIPT_IMAGE_BYTES = 3 * 1024 * 1024
+GROQ_MAX_INSIGHT_TOKENS = int(os.getenv("GROQ_MAX_INSIGHT_TOKENS", "700"))
 
 app.add_middleware(
     CORSMiddleware,
@@ -109,6 +114,7 @@ def debug_info() -> dict[str, Any]:
         "api_key_prefix": api_key[:10] + "..." if api_key else "",
         "provider": "groq",
         "model": GROQ_MODEL,
+        "fallback_model": GROQ_FALLBACK_MODEL,
         "ai_status": ai_status,
         "ai_error": ai_error,
     }
@@ -177,7 +183,7 @@ async def scan_receipt(file: UploadFile = File(...)) -> dict[str, Any]:
 def user_friendly_ai_error(exc: Exception) -> str:
     message = str(exc)
     if "429" in message or "RESOURCE_EXHAUSTED" in message:
-        return "AI quota is temporarily unavailable, so FinWise used local guidance for this insight."
+        return "AI is busy right now, so FinWise used local guidance for this insight."
     return "AI guidance is temporarily unavailable, so FinWise used local guidance for this insight."
 
 
@@ -193,9 +199,32 @@ def user_friendly_receipt_error(exc: Exception) -> str:
 
 
 def generate_ai_text(api_key: str, prompt: str) -> str:
+    errors: list[Exception] = []
+    for model in insight_model_candidates():
+        try:
+            return generate_ai_text_with_model(api_key, prompt, model)
+        except Exception as exc:
+            errors.append(exc)
+            if not is_rate_limit_error(exc):
+                raise
+    if errors:
+        raise errors[-1]
+    raise RuntimeError("No Groq insight model is configured.")
+
+
+def insight_model_candidates() -> list[str]:
+    models = [GROQ_MODEL, GROQ_FALLBACK_MODEL]
+    unique_models: list[str] = []
+    for model in models:
+        if model and model not in unique_models:
+            unique_models.append(model)
+    return unique_models
+
+
+def generate_ai_text_with_model(api_key: str, prompt: str, model: str) -> str:
     client = Groq(api_key=api_key)
     response = client.chat.completions.create(
-        model=GROQ_MODEL,
+        model=model,
         messages=[
             {
                 "role": "system",
@@ -207,7 +236,7 @@ def generate_ai_text(api_key: str, prompt: str) -> str:
             {"role": "user", "content": prompt},
         ],
         temperature=0.3,
-        max_tokens=1200,
+        max_tokens=GROQ_MAX_INSIGHT_TOKENS,
         response_format={"type": "json_object"},
     )
     return response.choices[0].message.content or ""
@@ -261,11 +290,12 @@ Rules:
 - Do not claim guaranteed returns.
 - Keep advice educational, not formal financial advice.
 - Mention SIP, compounding, budgeting, or emergency savings when relevant.
+- Keep the JSON concise.
 - Return only valid JSON matching this shape:
 {{
-  "summary": "2-4 sentence insight",
-  "recommendations": ["3-5 concrete actions"],
-  "investmentLessons": ["2-4 educational lessons"],
+  "summary": "1-2 sentence insight",
+  "recommendations": ["3 concrete actions"],
+  "investmentLessons": ["2 short educational lessons"],
   "scenario": {{
     "monthlySaving": number,
     "assumedAnnualReturn": 0.12,

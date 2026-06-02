@@ -21,6 +21,7 @@ class AiInsightsPageState extends State<AiInsightsPage> {
   late Future<FinWiseAiBundle> _insightsFuture;
   double? _scenarioMonthlySaving;
   int? _scenarioYears;
+  int _selectedScenarioProfileIndex = 1;
   int _selectedCategoryIndex = 0;
 
   @override
@@ -54,6 +55,7 @@ class AiInsightsPageState extends State<AiInsightsPage> {
     setState(() {
       _scenarioMonthlySaving = null;
       _scenarioYears = null;
+      _selectedScenarioProfileIndex = 1;
       _selectedCategoryIndex = 0;
       _insightsFuture = _loadInsights();
     });
@@ -68,6 +70,12 @@ class AiInsightsPageState extends State<AiInsightsPage> {
   void _setScenarioYears(double value) {
     setState(() {
       _scenarioYears = value.round();
+    });
+  }
+
+  void _setScenarioProfileIndex(int index) {
+    setState(() {
+      _selectedScenarioProfileIndex = index;
     });
   }
 
@@ -139,8 +147,10 @@ class AiInsightsPageState extends State<AiInsightsPage> {
                   bundle: bundle,
                   monthlySavingOverride: _scenarioMonthlySaving,
                   yearsOverride: _scenarioYears,
+                  selectedProfileIndex: _selectedScenarioProfileIndex,
                   onMonthlySavingChanged: _setScenarioMonthlySaving,
                   onYearsChanged: _setScenarioYears,
+                  onProfileSelected: _setScenarioProfileIndex,
                 ),
                 const SizedBox(height: 12),
                 _TopCategoriesCard(
@@ -218,16 +228,16 @@ class _InsightHero extends StatelessWidget {
     final Color scoreColor = score >= 70
         ? getColor(context, "incomeAmount")
         : score >= 40
-        ? Theme.of(context).colorScheme.primary
-        : getColor(context, "expenseAmount");
+            ? Theme.of(context).colorScheme.primary
+            : getColor(context, "expenseAmount");
     final String focus = snapshot.topCategories.isEmpty
         ? "add a few expenses"
         : "watch ${snapshot.topCategories.first.name}";
     final String status = score >= 70
         ? "Strong month"
         : score >= 40
-        ? "Room to improve"
-        : "Needs attention";
+            ? "Room to improve"
+            : "Needs attention";
 
     return _AiCard(
       padding: const EdgeInsetsDirectional.all(18),
@@ -412,8 +422,8 @@ class _InsightSummaryCard extends StatelessWidget {
             title: bundle.insight.source == "groq"
                 ? "Groq insight"
                 : bundle.insight.source == "local-fallback"
-                ? "Financial guidance"
-                : "Local guidance",
+                    ? "Financial guidance"
+                    : "Local guidance",
           ),
           const SizedBox(height: 12),
           TextFont(
@@ -473,43 +483,49 @@ class _ScenarioCard extends StatelessWidget {
     required this.bundle,
     required this.monthlySavingOverride,
     required this.yearsOverride,
+    required this.selectedProfileIndex,
     required this.onMonthlySavingChanged,
     required this.onYearsChanged,
+    required this.onProfileSelected,
   });
 
   final FinWiseAiBundle bundle;
   final double? monthlySavingOverride;
   final int? yearsOverride;
+  final int selectedProfileIndex;
   final ValueChanged<double> onMonthlySavingChanged;
   final ValueChanged<double> onYearsChanged;
+  final ValueChanged<int> onProfileSelected;
 
   @override
   Widget build(BuildContext context) {
     final AllWallets allWallets = Provider.of<AllWallets>(context);
     final FinWiseScenario scenario = bundle.insight.scenario;
+    final int safeProfileIndex = selectedProfileIndex
+        .clamp(0, _investmentScenarioProfiles.length - 1)
+        .toInt();
+    final _InvestmentScenarioProfile selectedProfile =
+        _investmentScenarioProfiles[safeProfileIndex];
     final double baselineSaving = scenario.monthlySaving > 0
         ? scenario.monthlySaving
         : (bundle.snapshot.savings > 0 ? bundle.snapshot.savings : 1000);
-    final double selectedMonthlySaving = (monthlySavingOverride ?? baselineSaving)
-        .clamp(0, baselineSaving * 2)
-        .toDouble();
-    final int selectedYears = (yearsOverride ?? scenario.years)
-        .clamp(1, 20)
-        .toInt();
-    final double assumedAnnualReturn = scenario.assumedAnnualReturn > 0
-        ? scenario.assumedAnnualReturn
-        : 0.12;
+    final double selectedMonthlySaving =
+        (monthlySavingOverride ?? baselineSaving)
+            .clamp(0, baselineSaving * 2)
+            .toDouble();
+    final int selectedYears =
+        (yearsOverride ?? scenario.years).clamp(1, 20).toInt();
     final double projectedAmount = _futureValueMonthly(
       monthlySaving: selectedMonthlySaving,
-      annualReturn: assumedAnnualReturn,
+      annualReturn: selectedProfile.annualReturn,
       years: selectedYears,
     );
     final double sliderMax = baselineSaving <= 0 ? 10000 : baselineSaving * 2;
     final double projectionProgress = projectedAmount <= 0
         ? 0.04
         : (projectedAmount / (sliderMax * selectedYears * 18))
-              .clamp(0.08, 1)
-              .toDouble();
+            .clamp(0.08, 1)
+            .toDouble();
 
     return _AiCard(
       child: Column(
@@ -531,8 +547,32 @@ class _ScenarioCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _MiniMetric(
-                  label: "$selectedYears year projection",
+                  label: "$selectedYears year estimate",
                   value: convertToMoney(allWallets, projectedAmount),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _ProfileSelector(
+            selectedIndex: safeProfileIndex,
+            onSelected: onProfileSelected,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniMetric(
+                  label: "Selected track",
+                  value: selectedProfile.title,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MiniMetric(
+                  label: "Assumption",
+                  value:
+                      "${(selectedProfile.annualReturn * 100).toStringAsFixed(0)}% yearly",
                 ),
               ),
             ],
@@ -570,12 +610,166 @@ class _ScenarioCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextFont(
-            text:
-                "Assumes ${(assumedAnnualReturn * 100).toStringAsFixed(0)}% annual return. This is an educational projection, not a guaranteed result.",
+            text: selectedProfile.description,
             fontSize: 14,
             textColor: getColor(context, "textLight"),
             maxLines: 6,
           ),
+          const SizedBox(height: 8),
+          TextFont(
+            text:
+                "Educational estimate only. It shows what could happen if a fund category averages this return; actual mutual fund results are not guaranteed.",
+            fontSize: 13,
+            textColor: getColor(context, "textLight"),
+            maxLines: 5,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InvestmentScenarioProfile {
+  const _InvestmentScenarioProfile({
+    required this.title,
+    required this.subtitle,
+    required this.annualReturn,
+    required this.description,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final double annualReturn;
+  final String description;
+  final IconData icon;
+}
+
+const List<_InvestmentScenarioProfile> _investmentScenarioProfiles = [
+  _InvestmentScenarioProfile(
+    title: "Low risk",
+    subtitle: "Money Market style",
+    annualReturn: 0.10,
+    description:
+        "A lower-risk learning track inspired by money market funds. It prioritizes stability and liquidity over aggressive growth.",
+    icon: Icons.shield_rounded,
+  ),
+  _InvestmentScenarioProfile(
+    title: "Medium risk",
+    subtitle: "Income / Fixed Income style",
+    annualReturn: 0.12,
+    description:
+        "A balanced learning track inspired by income and fixed income funds. It models moderate growth with moderate risk.",
+    icon: Icons.account_balance_rounded,
+  ),
+  _InvestmentScenarioProfile(
+    title: "High risk",
+    subtitle: "Equity style",
+    annualReturn: 0.15,
+    description:
+        "A higher-risk learning track inspired by equity funds. It models stronger long-term growth with larger ups and downs.",
+    icon: Icons.show_chart_rounded,
+  ),
+];
+
+class _ProfileSelector extends StatelessWidget {
+  const _ProfileSelector({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextFont(
+          text: "Risk profile",
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          maxLines: 1,
+        ),
+        const SizedBox(height: 8),
+        for (final MapEntry<int, _InvestmentScenarioProfile> entry
+            in _investmentScenarioProfiles.asMap().entries)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(bottom: 8),
+            child: Tappable(
+              onTap: () => onSelected(entry.key),
+              borderRadius: 8,
+              child: _ProfileOption(
+                profile: entry.value,
+                selected: entry.key == selectedIndex,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProfileOption extends StatelessWidget {
+  const _ProfileOption({required this.profile, required this.selected});
+
+  final _InvestmentScenarioProfile profile;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = selected
+        ? Theme.of(context).colorScheme.primary
+        : getColor(context, "textLight");
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: 12,
+        vertical: 11,
+      ),
+      decoration: BoxDecoration(
+        color: selected
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+            : getColor(context, "lightDarkAccent").withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: selected
+              ? Theme.of(context).colorScheme.primary
+              : getColor(context, "lightDarkAccent"),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(profile.icon, size: 20, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFont(
+                  text: profile.title,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  textColor: selected ? color : getColor(context, "black"),
+                  maxLines: 1,
+                ),
+                const SizedBox(height: 3),
+                TextFont(
+                  text:
+                      "${profile.subtitle} - ${(profile.annualReturn * 100).toStringAsFixed(0)}% assumed yearly",
+                  fontSize: 12.5,
+                  textColor: getColor(context, "textLight"),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          if (selected)
+            Icon(
+              Icons.check_circle_rounded,
+              size: 19,
+              color: Theme.of(context).colorScheme.primary,
+            ),
         ],
       ),
     );
@@ -669,9 +863,8 @@ class _TopCategoriesCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final double maxAmount = snapshot.topCategories.first.amount;
-    final int safeSelectedIndex = selectedIndex
-        .clamp(0, snapshot.topCategories.length - 1)
-        .toInt();
+    final int safeSelectedIndex =
+        selectedIndex.clamp(0, snapshot.topCategories.length - 1).toInt();
     final FinWiseCategoryTotal selected =
         snapshot.topCategories[safeSelectedIndex];
     final double monthlyImpact = selected.amount * 0.10;
@@ -684,12 +877,8 @@ class _TopCategoriesCard extends StatelessWidget {
             title: "Top spending categories",
           ),
           const SizedBox(height: 12),
-          for (final MapEntry<int, FinWiseCategoryTotal> entry in snapshot
-              .topCategories
-              .take(5)
-              .toList()
-              .asMap()
-              .entries)
+          for (final MapEntry<int, FinWiseCategoryTotal> entry
+              in snapshot.topCategories.take(5).toList().asMap().entries)
             Tappable(
               onTap: () => onSelected(entry.key),
               borderRadius: 8,
@@ -733,9 +922,8 @@ class _TopCategoriesCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
                         minHeight: 8,
-                        value: maxAmount <= 0
-                            ? 0
-                            : entry.value.amount / maxAmount,
+                        value:
+                            maxAmount <= 0 ? 0 : entry.value.amount / maxAmount,
                         color: entry.key == safeSelectedIndex
                             ? Theme.of(context).colorScheme.primary
                             : null,
@@ -751,8 +939,8 @@ class _TopCategoriesCard extends StatelessWidget {
             padding: const EdgeInsetsDirectional.all(12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary.withValues(
-                alpha: 0.08,
-              ),
+                    alpha: 0.08,
+                  ),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
